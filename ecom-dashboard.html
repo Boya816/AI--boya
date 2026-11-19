@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>跨境品类运营看板 · Black Week</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+:root {
+  --bg: #F0F2F5;
+  --card: #fff;
+  --border: #E8ECF0;
+  --text: #1A1D23;
+  --sub: #6B7280;
+  --blue: #1677FF;
+  --green: #00B96B;
+  --red: #FF4D4F;
+  --yellow: #FAAD14;
+  --red-bg: #FFF1F0;
+  --yellow-bg: #FFFBE6;
+  --green-bg: #F6FFED;
+  --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  --radius: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+       background: var(--bg); color: var(--text); font-size: 13px; }
+a { color: var(--blue); }
+
+/* Header */
+#header {
+  position: sticky; top: 0; z-index: 100;
+  background: #fff; border-bottom: 1px solid var(--border);
+  padding: 10px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+#header .brand { font-size: 15px; font-weight: 700; color: var(--text); white-space: nowrap; }
+#header .brand span { color: var(--blue); }
+.filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.filter-label { color: var(--sub); font-size: 12px; }
+select { border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px;
+         font-size: 12px; color: var(--text); background: #fff; cursor: pointer; outline: none; }
+select:focus { border-color: var(--blue); }
+.promo-badge { margin-left: auto; background: linear-gradient(135deg,#FF6B35,#FF4D4F);
+               color: #fff; font-size: 11px; font-weight: 600; padding: 3px 10px;
+               border-radius: 12px; white-space: nowrap; }
+
+/* Layout */
+#main { padding: 16px 20px; max-width: 1600px; }
+.section { margin-bottom: 16px; }
+.section-title { font-size: 13px; font-weight: 600; color: var(--sub);
+                 text-transform: uppercase; letter-spacing: .5px;
+                 margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.section-title::before { content:''; display:inline-block; width:3px; height:14px;
+                          background:var(--blue); border-radius:2px; }
+
+/* Cards */
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+        border: 1px solid var(--border); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.grid-6 { display: grid; grid-template-columns: repeat(6,1fr); gap: 12px; }
+
+/* KPI Cards */
+.kpi-card { padding: 14px 16px; }
+.kpi-card .kpi-label { font-size: 11px; color: var(--sub); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+.kpi-card .kpi-value { font-size: 22px; font-weight: 700; line-height: 1; }
+.kpi-card .kpi-meta { font-size: 11px; margin-top: 4px; color: var(--sub); }
+.up { color: var(--green); }
+.dn { color: var(--red); }
+.neutral { color: var(--sub); }
+.arrow-up::before { content: '▲ '; font-size: 9px; }
+.arrow-dn::before { content: '▼ '; font-size: 9px; }
+
+/* Metric definitions */
+#metric-defs { background: var(--card); border: 1px solid var(--border);
+               border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
+#metric-defs .defs-header { padding: 10px 14px; cursor: pointer; display: flex;
+                              align-items: center; justify-content: space-between;
+                              font-weight: 600; font-size: 12px; color: var(--sub);
+                              background: #FAFBFC; border-bottom: 1px solid var(--border); }
+#metric-defs .defs-header:hover { background: #F0F2F5; }
+#defs-body { padding: 14px; display: none; }
+#defs-body.open { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+.def-item { font-size: 12px; line-height: 1.6; }
+.def-item strong { color: var(--blue); }
+.logic-box { grid-column: 1/-1; background: #F0F6FF; border-radius: 6px; padding: 10px 14px; font-size: 12px; line-height: 1.8; }
+.logic-box b { color: var(--text); }
+
+/* Tooltip on abbreviations */
+.tip { border-bottom: 1px dashed #bbb; cursor: help; position: relative; display: inline; }
+.tip::after { content: attr(data-t); position: absolute; bottom: calc(100% + 6px);
+              left: 50%; transform: translateX(-50%); background: rgba(20,20,20,0.88);
+              color: #fff; padding: 5px 9px; border-radius: 5px; font-size: 11px;
+              white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s;
+              z-index: 999; }
+.tip:hover::after { opacity: 1; }
+
+/* Anomaly Panel */
+#anomaly-panel { background: var(--card); border-radius: var(--radius);
+                 border: 1px solid var(--border); margin-bottom: 12px; overflow: hidden; }
+.anomaly-header { padding: 10px 14px; background: #FFF7E6;
+                  border-bottom: 1px solid #FFE7BA; display: flex; align-items: center; gap: 8px;
+                  font-weight: 600; font-size: 13px; }
+.anomaly-count { background: var(--red); color: #fff; border-radius: 10px;
+                 font-size: 11px; font-weight: 700; padding: 1px 7px; }
+.anomaly-list { display: flex; flex-direction: column; gap: 0; }
+.anom-row { display: grid; grid-template-columns: 80px 120px 1fr 2fr 1.5fr 80px;
+            align-items: center; gap: 10px; padding: 9px 14px;
+            border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+.anom-row:hover { background: #FAFBFC; }
+.anom-row:last-child { border-bottom: none; }
+.anom-sev { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; text-align: center; }
+.sev-high   { background: var(--red-bg);    color: var(--red);    }
+.sev-medium { background: var(--yellow-bg); color: var(--yellow); }
+.sev-low    { background: #F5F5F5;          color: var(--sub);    }
+.anom-loc  { font-weight: 600; color: var(--text); }
+.anom-metric { color: var(--sub); font-size: 12px; }
+.anom-cause  { color: var(--text); font-size: 12px; }
+.anom-action { color: var(--blue); font-size: 12px; }
+.anom-dev   { font-weight: 700; }
+
+/* Progress bars */
+.cat-row { display: grid; grid-template-columns: 110px 1fr 80px 70px 70px;
+           align-items: center; gap: 8px; padding: 6px 4px;
+           border-radius: 6px; transition: background .1s; }
+.cat-row:hover { background: #F5F7FA; }
+.cat-row.anom-high-row  { background: var(--red-bg);    }
+.cat-row.anom-mid-row   { background: var(--yellow-bg); }
+.cat-name { font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 4px; }
+.prog-wrap { background: #EAEEF2; border-radius: 4px; height: 8px; position: relative; overflow: visible; }
+.prog-fill { height: 100%; border-radius: 4px; position: relative; }
+.prog-goal-line { position: absolute; right: 0; top: -3px; bottom: -3px; width: 2px; background: #aaa; border-radius: 1px; }
+.pct-text { font-size: 11px; font-weight: 700; }
+.nmv-text { font-size: 11px; color: var(--sub); text-align: right; }
+.wow-text  { font-size: 11px; font-weight: 600; text-align: right; }
+
+/* Tables */
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table th { background: #FAFBFC; color: var(--sub); font-weight: 600; padding: 8px 10px;
+                 text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.data-table th:first-child { text-align: left; }
+.data-table td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #F5F5F5;
+                 white-space: nowrap; }
+.data-table td:first-child { text-align: left; }
+.data-table tr:hover td { background: #FAFBFC; }
+.data-table tr.selected-row td { background: #E6F4FF !important; }
+.cell-high { background: #FFF1F0 !important; color: var(--red) !important; font-weight: 700; }
+.cell-warn { background: #FFFBE6 !important; color: #D46B08 !important; font-weight: 700; }
+.rank-badge { background: #F0F2F5; color: var(--sub); border-radius: 4px; padding: 1px 5px;
+              font-size: 11px; font-weight: 700; margin-right: 4px; }
+.rank-badge.top { background: #E6F4FF; color: var(--blue); }
+
+/* Segment table */
+.seg-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.seg-table th { background: #FAFBFC; color: var(--sub); font-weight: 600; padding: 10px 14px;
+                border-bottom: 1px solid var(--border); text-align: right; }
+.seg-table th:first-child { text-align: left; }
+.seg-table td { padding: 10px 14px; border-bottom: 1px solid #F5F5F5; text-align: right; vertical-align: middle; }
+.seg-table td:first-child { text-align: left; font-weight: 600; }
+.seg-table td.cell-high { color: var(--red) !important; font-weight: 700; }
+.seg-name { display: flex; align-items: center; gap: 8px; }
+.seg-dot  { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.sparkline { width: 100px; height: 32px; }
+
+/* Gauge row */
+.gauge-row { display: flex; gap: 12px; align-items: stretch; }
+.gauge-card { flex: 1; padding: 12px 14px; }
+.gauge-title { font-size: 12px; color: var(--sub); margin-bottom: 4px; }
+.gauge-container { height: 140px; }
+
+/* Drill-down */
+#drilldown-wrap { background: var(--card); border-radius: var(--radius);
+                  border: 1px solid var(--blue); margin-top: 12px; padding: 14px; display: none; }
+#drilldown-chart { height: 240px; }
+
+/* Scrollable area for layer content */
+.layer-card { padding: 14px; }
+.layer-inner { overflow-x: auto; }
+
+/* Tabs */
+.tab-bar { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 12px; }
+.tab { padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--sub);
+       cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+.tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+/* Utility */
+.flex { display: flex; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.flex-1 { flex: 1; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.fw-700 { font-weight: 700; }
+.fs-11 { font-size: 11px; }
+.color-sub { color: var(--sub); }
+.mt-8 { margin-top: 8px; }
+.btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px;
+       border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+       border: 1px solid var(--border); background: #fff; color: var(--text);
+       transition: all .15s; }
+.btn:hover { border-color: var(--blue); color: var(--blue); }
+
+/* ── 数据溯源 ── */
+.src-btn {
+  display: inline-flex; align-items: center; gap: 2px;
+  background: none; border: 1px solid #D9D9D9; border-radius: 4px;
+  padding: 1px 5px; font-size: 10px; color: #aaa; cursor: pointer;
+  transition: all .15s; vertical-align: middle; margin-left: 4px; white-space: nowrap;
+}
+.src-btn:hover { border-color: var(--blue); color: var(--blue); background: #E6F4FF; }
+
+#source-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.52); z-index: 300;
+  align-items: center; justify-content: center;
+}
+#source-modal.open { display: flex; }
+.src-modal-box {
+  background: #fff; border-radius: 10px; width: 92%; max-width: 900px;
+  max-height: 88vh; overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0,0,0,.18);
+}
+.src-modal-head {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: #FAFBFC;
+}
+.src-modal-head h3 { font-size: 14px; font-weight: 700; }
+.src-modal-close { background: none; border: none; font-size: 20px; color: #aaa;
+                   cursor: pointer; line-height: 1; padding: 0 4px; }
+.src-modal-close:hover { color: var(--red); }
+.src-modal-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+
+.src-section { margin-bottom: 18px; }
+.src-section-title { font-size: 12px; font-weight: 700; color: var(--sub);
+                     text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+.src-table-info { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.src-table-name { font-size: 13px; font-weight: 700; font-family: 'Courier New',monospace;
+                  color: var(--blue); background: #E6F4FF; padding: 2px 8px;
+                  border-radius: 4px; }
+.src-table-desc { font-size: 12px; color: var(--sub); }
+
+.src-formula { background: #F5F7FA; border-left: 3px solid var(--blue);
+               padding: 8px 12px; border-radius: 0 6px 6px 0; font-size: 12px;
+               font-family: 'Courier New', monospace; color: #333;
+               margin-bottom: 12px; line-height: 1.7; }
+.src-filter  { background: #FFFBE6; border-left: 3px solid var(--yellow);
+               padding: 8px 12px; border-radius: 0 6px 6px 0; font-size: 12px;
+               color: #7C5C00; margin-bottom: 12px; line-height: 1.7; }
+
+.raw-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.raw-table th { background: #F0F2F5; color: var(--sub); font-weight: 700; padding: 6px 8px;
+                text-align: left; border-bottom: 2px solid var(--border);
+                white-space: nowrap; font-family: 'Courier New',monospace; }
+.raw-table td { padding: 5px 8px; border-bottom: 1px solid #F5F5F5; color: var(--text);
+                white-space: nowrap; font-family: 'Courier New',monospace; font-size: 11px; }
+.raw-table tr:hover td { background: #F5F7FA; }
+.raw-note { font-size: 11px; color: var(--sub); margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div id="header">
+  <div class="brand">跨境品类运营 <span>Black Week</span> 看板</div>
+  <div class="filter-group">
+    <span class="filter-label">品类</span>
+    <select id="f-cat" onchange="onFilter()">
+      <option value="all">全部品类</option>
+      <option value="3c">3C数码</option>
+      <option value="apparel">服装</option>
+      <option value="home">家居</option>
+      <option value="beauty">美妆</option>
+      <option value="sports">运动户外</option>
+      <option value="baby">母婴</option>
+      <option value="toys">玩具</option>
+      <option value="food">食品</option>
+      <option value="auto">汽配</option>
+      <option value="pet">宠物</option>
+      <option value="tools">工具</option>
+      <option value="jewelry">珠宝</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">履约板块</span>
+    <select id="f-seg" onchange="onFilter()">
+      <option value="all">全部板块</option>
+      <option value="full">海外仓 FULL</option>
+      <option value="self">自发货</option>
+      <option value="local">本土店</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">大促周期</span>
+    <select id="f-cycle" onchange="onFilter()">
+      <option value="all">全程 (3/26–4/2)</option>
+      <option value="c1">周期1 (3/26–3/27)</option>
+      <option value="c2">周期2 (3/28–3/29)</option>
+      <option value="c3">周期3 (3/30–3/31)</option>
+      <option value="c4">周期4 (4/1–4/2)</option>
+    </select>
+  </div>
+  <div class="promo-badge">🔥 Black Week · 第3周期</div>
+</div>
+
+<div id="main">
+
+<!-- Metric Definitions -->
+<div id="metric-defs">
+  <div class="defs-header" onclick="toggleDefs()">
+    <span>📐 指标口径 & 排查逻辑说明</span>
+    <span id="defs-arrow">▼</span>
+  </div>
+  <div id="defs-body">
+    <div class="def-item"><strong>NMV</strong>：净成交额 = <strong>UV × CVR × ASP</strong>（扣除取消/退货后口径）</div>
+    <div class="def-item"><strong>UV</strong>：独立访客数（去重）</div>
+    <div class="def-item"><strong>CVR</strong>：转化率 = 订单数 ÷ UV</div>
+    <div class="def-item"><strong>ASP</strong>：客单价 = NMV ÷ 订单数</div>
+    <div class="def-item"><strong>TSI</strong>：总销售件数（按 SKU 出货）</div>
+    <div class="def-item"><strong>WoW</strong>：周环比 = (本周 - 上周) ÷ 上周</div>
+    <div class="def-item"><strong>YoY</strong>：同比 = (本期 - 去年同期) ÷ 去年同期</div>
+    <div class="def-item"><strong>YTD</strong>：年初至今累计 NMV</div>
+    <div class="def-item"><strong>vs Goal</strong>：达成率 = 实际 NMV ÷ 目标 NMV</div>
+    <div class="def-item"><strong>渗透率</strong>：海外仓 NMV ÷ 站点总 NMV</div>
+    <div class="def-item"><strong>TSI</strong>：总件数；<strong>Live Listing</strong>：当前在架 SKU 数</div>
+    <div class="logic-box">
+      <b>排查逻辑：</b><br>
+      ① 先看大盘 WoW/YoY：整体异动还是个别品类？<br>
+      ② 若是个别品类/单品 → 拆解 NMV = UV × CVR × ASP，找跌幅最大分量<br>
+      &nbsp;&nbsp;&nbsp;• UV 大跌 → 流量问题（大促回落/竞品抢量/资源减少）<br>
+      &nbsp;&nbsp;&nbsp;• CVR 大跌但 UV 正常 → 转化问题（价格/详情页/评价/竞品降价）<br>
+      &nbsp;&nbsp;&nbsp;• ASP 异常高/低 → 价格带偏移（促销集中/爆款结构变化）<br>
+      ③ 若是大盘整体 → 先判断是否大促回落（看周期环比），再看竞品
+    </div>
+  </div>
+</div>
+
+<!-- Anomaly Panel -->
+<div id="anomaly-panel">
+  <div class="anomaly-header">
+    ⚠️ 自动异常预警 &nbsp; <span class="anomaly-count" id="anom-count">0</span>
+    <span style="margin-left:auto;font-size:11px;color:#8c5800;font-weight:400">点击任意条目跳转到对应图表</span>
+  </div>
+  <div class="anomaly-list" id="anomaly-list"></div>
+</div>
+
+<!-- Layer 0: KPI Cards -->
+<div class="section">
+  <div class="section-title">大盘总览</div>
+  <div class="grid-6" id="kpi-cards"></div>
+</div>
+
+<!-- Layer 1: Goal Achievement -->
+<div class="section">
+  <div class="section-title">目标达成（Layer 1）</div>
+  <div class="flex gap-12">
+    <div class="card flex-1 layer-card">
+      <div style="display:flex;gap:16px;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:8px;">品类 NMV vs Goal（进度排行）</div>
+          <div id="cat-progress-list"></div>
+        </div>
+        <div style="width:340px;">
+          <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:8px;">YoY 同比对比</div>
+          <div id="yoy-chart" style="height:320px;"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;width:240px;">
+      <div class="card gauge-card">
+        <div class="gauge-title">
+          <span class="tip" data-t="参促SKU数 ÷ 该大类全部SKU数">大促产品参与率</span>
+          <button class="src-btn" onclick="showSource('SKUPart','大促产品参与率')">📋 源</button>
+        </div>
+        <div class="gauge-container" id="gauge-sku"></div>
+        <div style="text-align:center;font-size:11px;color:var(--sub);">1,124 / 1,856 SKUs</div>
+      </div>
+      <div class="card gauge-card">
+        <div class="gauge-title">
+          <span class="tip" data-t="实际NMV ÷ 大促目标NMV">大促 NMV 达成率</span>
+          <button class="src-btn" onclick="showSource('Goal','大促NMV达成率')">📋 源</button>
+        </div>
+        <div class="gauge-container" id="gauge-nmv"></div>
+        <div style="text-align:center;font-size:11px;color:var(--sub);">$2,500K / $2,780K</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Layer 2: Segment Comparison -->
+<div class="section">
+  <div class="section-title">业务板块对比（Layer 2）</div>
+  <div class="card layer-card">
+    <table class="seg-table">
+      <thead>
+        <tr>
+          <th>板块</th>
+          <th><span class="tip" data-t="本周净成交额">本周 NMV</span></th>
+          <th><span class="tip" data-t="周环比">WoW</span></th>
+          <th><span class="tip" data-t="年初至今累计NMV">YTD NMV</span></th>
+          <th>渗透率</th>
+          <th>近8周趋势</th>
+          <th>数据来源</th>
+        </tr>
+      </thead>
+      <tbody id="seg-table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Layer 3: Movers & Shakers -->
+<div class="section">
+  <div class="section-title">单品异动 Movers &amp; Shakers（Layer 3）</div>
+  <div class="grid-2">
+    <div class="card layer-card">
+      <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:8px;">📈 NMV 增长 Top 10</div>
+      <table class="data-table" id="movers-table"></table>
+    </div>
+    <div class="card layer-card">
+      <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px;">📉 NMV 下滑 Bottom 10</div>
+      <table class="data-table" id="shakers-table"></table>
+    </div>
+  </div>
+  <div id="drilldown-wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font-weight:600;font-size:13px;" id="drilldown-title">单品下钻</div>
+      <div id="drilldown-close" onclick="closeDrilldown()" style="cursor:pointer;color:var(--sub);font-size:18px;">×</div>
+    </div>
+    <div id="drilldown-chart"></div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- ── 数据溯源弹窗 ── -->
+<div id="source-modal" onclick="handleSrcOverlay(event)">
+  <div class="src-modal-box">
+    <div class="src-modal-head">
+      <h3 id="src-modal-title">📋 原始数据溯源</h3>
+      <button class="src-modal-close" onclick="closeSource()">×</button>
+    </div>
+    <div class="src-modal-body" id="src-modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const CATS = [
+  { id:'3c',      name:'3C数码',   icon:'💻',
+    nmv:580, nmvPrev:395, nmvYoY:460, goal:620,
+    uv:90000,  cvr:3.3,  asp:195, uvPrev:88000, cvrPrev:3.1,  aspPrev:144,
+    skuTotal:380, skuPromo:310,
+    nmvHist:[320,335,318,342,355,368,395,580] },
+  { id:'apparel', name:'服装',     icon:'👗',
+    nmv:420, nmvPrev:380, nmvYoY:310, goal:480,
+    uv:128000, cvr:2.1,  asp:156, uvPrev:115000,cvrPrev:3.2,  aspPrev:103,
+    skuTotal:420, skuPromo:380,
+    nmvHist:[280,292,275,301,310,325,380,420] },
+  { id:'home',    name:'家居',     icon:'🏠',
+    nmv:280, nmvPrev:220, nmvYoY:210, goal:300,
+    uv:75000,  cvr:3.8,  asp:98,  uvPrev:58000, cvrPrev:3.5,  aspPrev:108,
+    skuTotal:350, skuPromo:320,
+    nmvHist:[180,185,178,192,198,205,220,280] },
+  { id:'beauty',  name:'美妆',     icon:'💄',
+    nmv:240, nmvPrev:195, nmvYoY:252, goal:310,
+    uv:82000,  cvr:4.2,  asp:70,  uvPrev:62000, cvrPrev:4.0,  aspPrev:78,
+    skuTotal:200, skuPromo:165,
+    nmvHist:[155,162,158,170,175,182,195,240] },
+  { id:'sports',  name:'运动户外', icon:'⚽',
+    nmv:210, nmvPrev:175, nmvYoY:165, goal:230,
+    uv:68000,  cvr:4.5,  asp:69,  uvPrev:55000, cvrPrev:4.2,  aspPrev:76,
+    skuTotal:180, skuPromo:162,
+    nmvHist:[135,140,138,148,152,160,175,210] },
+  { id:'baby',    name:'母婴',     icon:'👶',
+    nmv:185, nmvPrev:155, nmvYoY:148, goal:200,
+    uv:58000,  cvr:4.8,  asp:66,  uvPrev:48000, cvrPrev:4.5,  aspPrev:72,
+    skuTotal:160, skuPromo:148,
+    nmvHist:[118,122,120,128,132,138,155,185] },
+  { id:'toys',    name:'玩具',     icon:'🧸',
+    nmv:150, nmvPrev:110, nmvYoY:118, goal:220,
+    uv:42000,  cvr:4.2,  asp:85,  uvPrev:32000, cvrPrev:3.9,  aspPrev:88,
+    skuTotal:140, skuPromo:77,
+    nmvHist:[85,88,82,90,93,98,110,150] },
+  { id:'food',    name:'食品',     icon:'🍎',
+    nmv:120, nmvPrev:92,  nmvYoY:98,  goal:130,
+    uv:48000,  cvr:3.5,  asp:71,  uvPrev:36000, cvrPrev:3.3,  aspPrev:78,
+    skuTotal:95, skuPromo:87,
+    nmvHist:[72,75,70,78,80,84,92,120] },
+  { id:'auto',    name:'汽配',     icon:'🚗',
+    nmv:98,  nmvPrev:78,  nmvYoY:80,  goal:105,
+    uv:38000,  cvr:3.8,  asp:68,  uvPrev:29000, cvrPrev:3.6,  aspPrev:75,
+    skuTotal:85, skuPromo:78,
+    nmvHist:[60,62,60,65,67,70,78,98] },
+  { id:'pet',     name:'宠物',     icon:'🐾',
+    nmv:88,  nmvPrev:72,  nmvYoY:68,  goal:95,
+    uv:34000,  cvr:4.2,  asp:62,  uvPrev:26000, cvrPrev:3.8,  aspPrev:73,
+    skuTotal:75, skuPromo:70,
+    nmvHist:[55,57,54,59,61,64,72,88] },
+  { id:'tools',   name:'工具',     icon:'🔧',
+    nmv:75,  nmvPrev:62,  nmvYoY:60,  goal:82,
+    uv:28000,  cvr:3.9,  asp:69,  uvPrev:22000, cvrPrev:3.6,  aspPrev:78,
+    skuTotal:68, skuPromo:62,
+    nmvHist:[48,50,47,52,53,56,62,75] },
+  { id:'jewelry', name:'珠宝',     icon:'💎',
+    nmv:54,  nmvPrev:42,  nmvYoY:40,  goal:58,
+    uv:9500,   cvr:2.1,  asp:270, uvPrev:11000, cvrPrev:2.8,  aspPrev:136,
+    skuTotal:45, skuPromo:30,
+    nmvHist:[32,33,31,34,35,37,42,54] },
+];
+
+const SEGS = [
+  { id:'full',  name:'海外仓 FULL', color:'#1677FF',
+    nmv:1550, nmvPrev:1174, wow:32.0,  ytd:28400,
+    nmvHist:[980,1020,995,1050,1080,1120,1174,1550] },
+  { id:'self',  name:'自发货',      color:'#FF4D4F',
+    nmv:625,  nmvPrev:762,  wow:-18.0, ytd:12800,
+    nmvHist:[450,468,445,478,492,510,762,625] },
+  { id:'local', name:'本土店',      color:'#00B96B',
+    nmv:325,  nmvPrev:283,  wow:14.8,  ytd:6200,
+    nmvHist:[245,255,248,262,270,280,283,325] },
+];
+
+const WEEK_LABELS = ['W-7','W-6','W-5','W-4','W-3','W-2','W-1','W0'];
+
+// Top 10 Movers
+const MOVERS = [
+  { id:'m1',  name:'蓝牙耳机Pro',  cat:'3C数码',   tsi:2016, uv:42000, cvr:4.8, asp:45,  nmv:90720,  wow:85.2, uvWow:40.0,  cvrWow:25.0, aspWow:10.0,
+    hist:{uv:[26000,27500,25800,29000,31000,34000,30000,42000],cvr:[3.5,3.6,3.4,3.6,3.7,3.8,3.8,4.8],asp:[40,41,40,42,41,42,41,45]} },
+  { id:'m2',  name:'空气炸锅XL',   cat:'家居',     tsi:1120, uv:35000, cvr:3.2, asp:89,  nmv:99680,  wow:72.1, uvWow:55.0,  cvrWow:8.0,  aspWow:5.0,
+    hist:{uv:[18000,19000,18500,21000,22000,24000,22500,35000],cvr:[2.9,2.9,3.0,3.0,3.0,3.1,3.0,3.2],asp:[83,84,83,85,85,86,85,89]} },
+  { id:'m3',  name:'跑步鞋Pro',    cat:'运动户外', tsi:1428, uv:28000, cvr:5.1, asp:68,  nmv:97104,  wow:68.3, uvWow:45.0,  cvrWow:12.0, aspWow:8.0,
+    hist:{uv:[14000,14500,14200,16000,17000,18500,19300,28000],cvr:[4.4,4.4,4.5,4.5,4.5,4.6,4.6,5.1],asp:[62,62,63,63,64,64,63,68]} },
+  { id:'m4',  name:'精华液套装',   cat:'美妆',     tsi:1364, uv:22000, cvr:6.2, asp:58,  nmv:79112,  wow:64.8, uvWow:38.0,  cvrWow:18.0, aspWow:6.0,
+    hist:{uv:[12000,12500,12000,13500,14500,15500,15900,22000],cvr:[5.0,5.0,5.1,5.2,5.2,5.3,5.3,6.2],asp:[54,54,55,55,55,56,55,58]} },
+  { id:'m5',  name:'益智玩具A',    cat:'母婴',     tsi:888,  uv:18500, cvr:4.8, asp:42,  nmv:37296,  wow:58.4, uvWow:32.0,  cvrWow:15.0, aspWow:7.0,
+    hist:{uv:[10000,10500,10000,11500,12000,13000,14000,18500],cvr:[4.0,4.0,4.1,4.1,4.2,4.2,4.2,4.8],asp:[38,39,39,40,40,40,39,42]} },
+  { id:'m6',  name:'自动喂食器',   cat:'宠物',     tsi:825,  uv:15000, cvr:5.5, asp:52,  nmv:42900,  wow:52.1, uvWow:28.0,  cvrWow:18.0, aspWow:4.0,
+    hist:{uv:[8500,8800,8600,9500,10000,11000,11700,15000],cvr:[4.5,4.5,4.6,4.6,4.7,4.8,4.7,5.5],asp:[49,49,50,50,50,50,50,52]} },
+  { id:'m7',  name:'无线电钻',     cat:'工具',     tsi:456,  uv:12000, cvr:3.8, asp:78,  nmv:35568,  wow:47.8, uvWow:30.0,  cvrWow:10.0, aspWow:6.0,
+    hist:{uv:[6800,7000,6900,7800,8200,8800,9200,12000],cvr:[3.3,3.3,3.4,3.4,3.5,3.5,3.5,3.8],asp:[72,72,73,74,73,74,74,78]} },
+  { id:'m8',  name:'车载充电器',   cat:'汽配',     tsi:756,  uv:18000, cvr:4.2, asp:28,  nmv:21168,  wow:45.2, uvWow:35.0,  cvrWow:6.0,  aspWow:3.0,
+    hist:{uv:[10000,10500,10200,11500,12000,13000,13300,18000],cvr:[3.8,3.8,3.9,3.9,4.0,4.0,4.0,4.2],asp:[26,26,27,27,27,27,27,28]} },
+  { id:'m9',  name:'燕麦礼盒',     cat:'食品',     tsi:630,  uv:14000, cvr:4.5, asp:32,  nmv:20160,  wow:41.9, uvWow:38.0,  cvrWow:2.0,  aspWow:1.0,
+    hist:{uv:[7500,7800,7500,8500,9000,9800,10100,14000],cvr:[4.3,4.3,4.4,4.4,4.4,4.4,4.4,4.5],asp:[31,31,31,31,31,32,32,32]} },
+  { id:'m10', name:'银链项链',     cat:'珠宝',     tsi:323,  uv:8500,  cvr:3.8, asp:65,  nmv:20995,  wow:38.2, uvWow:20.0,  cvrWow:12.0, aspWow:5.0,
+    hist:{uv:[5500,5600,5400,6000,6300,6800,7000,8500],cvr:[3.2,3.2,3.3,3.3,3.4,3.4,3.4,3.8],asp:[60,61,61,62,62,62,62,65]} },
+];
+
+// Bottom 10 Shakers  (anomalies embedded)
+const SHAKERS = [
+  { id:'s1',  name:'女装连衣裙',   cat:'服装',     tsi:672,  uv:32000, cvr:2.1, asp:48,  nmv:32256,  wow:-38.2, uvWow:-5.3,  cvrWow:-34.4, aspWow:2.1,
+    hist:{uv:[33000,34000,33500,35000,36000,37000,33800,32000],cvr:[3.2,3.2,3.1,3.2,3.2,3.1,3.2,2.1],asp:[46,47,47,47,48,48,47,48]},
+    anomaly:'cvr' },
+  { id:'s2',  name:'无线鼠标',     cat:'3C数码',   tsi:357,  uv:8500,  cvr:4.2, asp:35,  nmv:12495,  wow:-32.1, uvWow:-32.0, cvrWow:-2.3,  aspWow:2.9,
+    hist:{uv:[15000,15200,15000,14800,16000,16500,12500,8500],cvr:[4.5,4.4,4.5,4.4,4.3,4.3,4.3,4.2],asp:[33,34,34,34,34,34,34,35]},
+    anomaly:'uv' },
+  { id:'s3',  name:'防晒霜SPF50',  cat:'美妆',     tsi:336,  uv:12000, cvr:2.8, asp:38,  nmv:12768,  wow:-27.8, uvWow:-10.0, cvrWow:-20.0, aspWow:2.7,
+    hist:{uv:[13000,13500,13000,14000,14500,15000,13300,12000],cvr:[3.4,3.4,3.5,3.5,3.5,3.6,3.5,2.8],asp:[37,37,37,38,38,38,37,38]},
+    anomaly:'cvr' },
+  { id:'s4',  name:'积木套装Pro',  cat:'玩具',     tsi:333,  uv:9500,  cvr:3.5, asp:42,  nmv:13965,  wow:-25.2, uvWow:-8.0,  cvrWow:-18.0, aspWow:-2.3,
+    hist:{uv:[10000,10200,9800,10500,11000,11500,10300,9500],cvr:[4.2,4.1,4.2,4.2,4.3,4.3,4.3,3.5],asp:[43,43,43,43,43,44,43,42]},
+    anomaly:'cvr' },
+  { id:'s5',  name:'18K金耳环',    cat:'珠宝',     tsi:92,   uv:4200,  cvr:2.2, asp:85,  nmv:7820,   wow:-21.8, uvWow:5.0,   cvrWow:-25.0, aspWow:-10.5,
+    hist:{uv:[3800,3900,3800,4000,4100,4200,4000,4200],cvr:[2.8,2.8,2.9,2.9,2.9,2.9,2.9,2.2],asp:[95,95,94,95,95,95,95,85]},
+    anomaly:'cvr' },
+  { id:'s6',  name:'男士商务衬衫', cat:'服装',     tsi:450,  uv:15000, cvr:3.0, asp:52,  nmv:23400,  wow:-19.6, uvWow:-15.0, cvrWow:-5.9,  aspWow:2.0,
+    hist:{uv:[17000,17500,17000,18000,18500,19000,17600,15000],cvr:[3.2,3.1,3.2,3.2,3.2,3.2,3.2,3.0],asp:[51,51,51,51,51,51,51,52]},
+    anomaly:'uv' },
+  { id:'s7',  name:'坚果礼包',     cat:'食品',     tsi:418,  uv:11000, cvr:3.8, asp:29,  nmv:12122,  wow:-17.8, uvWow:-12.0, cvrWow:-6.9,  aspWow:1.4,
+    hist:{uv:[12000,12200,11800,12500,13000,13500,12500,11000],cvr:[4.0,4.0,4.1,4.1,4.1,4.1,4.1,3.8],asp:[28,29,29,29,29,29,29,29]},
+    anomaly:'uv' },
+  { id:'s8',  name:'厨房刀具组',   cat:'家居',     tsi:369,  uv:9000,  cvr:4.1, asp:38,  nmv:14022,  wow:-16.2, uvWow:-10.0, cvrWow:-6.9,  aspWow:0.0,
+    hist:{uv:[10000,10200,9900,10500,11000,11200,10000,9000],cvr:[4.4,4.3,4.4,4.4,4.4,4.4,4.4,4.1],asp:[38,38,38,38,38,38,38,38]},
+    anomaly:'uv' },
+  { id:'s9',  name:'电动螺丝刀',   cat:'工具',     tsi:270,  uv:7500,  cvr:3.6, asp:48,  nmv:12960,  wow:-14.3, uvWow:-8.0,  cvrWow:-6.9,  aspWow:0.0,
+    hist:{uv:[8200,8400,8100,8800,9000,9200,8100,7500],cvr:[3.8,3.8,3.9,3.9,3.9,3.9,3.9,3.6],asp:[48,48,48,48,48,48,48,48]},
+    anomaly:'uv' },
+  { id:'s10', name:'车载手机支架', cat:'汽配',     tsi:416,  uv:13000, cvr:3.2, asp:22,  nmv:9152,   wow:-12.0, uvWow:-6.0,  cvrWow:-7.0,  aspWow:1.0,
+    hist:{uv:[13800,14000,13600,14500,15000,15200,13800,13000],cvr:[3.4,3.4,3.5,3.5,3.5,3.5,3.4,3.2],asp:[22,22,22,22,22,22,22,22]},
+    anomaly:'uv' },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+const S = { cat:'all', seg:'all', cycle:'all' };
+let selectedSKU = null;
+
+// ============================================================
+// UTILS
+// ============================================================
+function pct(v) { return (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; }
+function fmtK(v) { return v >= 1000 ? (v/1000).toFixed(1)+'K' : v.toFixed(0); }
+function fmtM(v) { return '$' + fmtK(v); }
+function colorWow(v) { return v > 0 ? 'up arrow-up' : (v < 0 ? 'dn arrow-dn' : 'neutral'); }
+function wowBar(v) { return v > 0 ? '+' + v.toFixed(1) + '%' : v.toFixed(1) + '%'; }
+function catById(id) { return CATS.find(c => c.id === id); }
+
+// ============================================================
+// 原始数据溯源 — 表结构 + 样本数据
+// ============================================================
+const RAW_TABLES = {
+  orders: {
+    id: 'orders',
+    name: 'dw_orders_detail',
+    desc: '订单明细宽表 · 每行一笔订单行项目 · 日增约 8–12 万行',
+    cols: ['order_id','sku_id','sku_name','category','fulfillment','qty','unit_price','gmv','order_date','country','is_refund'],
+    sample: [
+      ['ORD-20260326-000001','SKU-3C-0872', '蓝牙耳机Pro',  '3C数码',  'FULL',  '1','45.00','45.00', '2026-03-26','US','0'],
+      ['ORD-20260326-000042','SKU-APP-1234','女装连衣裙',   '服装',    '自发货','2','48.00','96.00', '2026-03-26','UK','0'],
+      ['ORD-20260326-000078','SKU-HOME-058','空气炸锅XL',   '家居',    'FULL',  '1','89.00','89.00', '2026-03-26','DE','0'],
+      ['ORD-20260327-000115','SKU-BEA-0312','精华液套装',   '美妆',    'FULL',  '1','58.00','58.00', '2026-03-27','CA','0'],
+      ['ORD-20260327-000201','SKU-3C-1105', '无线鼠标',     '3C数码',  '自发货','1','35.00','35.00', '2026-03-27','FR','1'],
+      ['ORD-20260327-000334','SKU-TOY-0823','积木套装Pro',  '玩具',    'FULL',  '1','42.00','42.00', '2026-03-27','US','0'],
+      ['ORD-20260328-000498','SKU-JEW-0041','18K金耳环',    '珠宝',    '本土店','1','85.00','85.00', '2026-03-28','UK','0'],
+      ['ORD-20260328-000562','SKU-SPO-0672','跑步鞋Pro',    '运动户外','FULL',  '1','68.00','68.00', '2026-03-28','AU','0'],
+      ['ORD-20260329-000701','SKU-PET-0223','自动喂食器',   '宠物',    'FULL',  '2','52.00','104.00','2026-03-29','US','0'],
+      ['ORD-20260329-000815','SKU-FOOD-091','燕麦礼盒',     '食品',    '自发货','3','32.00','96.00', '2026-03-29','CA','0'],
+    ],
+  },
+  promo: {
+    id: 'promo',
+    name: 'dw_sku_promo_status',
+    desc: '大促报名状态表 · 每行一个 SKU · 记录参促状态与预估目标',
+    cols: ['sku_id','sku_name','category','is_live','promo_enrolled','enroll_date','fulfillment','discount_rate','est_gmv_target'],
+    sample: [
+      ['SKU-3C-0872', '蓝牙耳机Pro',  '3C数码',  '1','1','2026-03-20','FULL',  '15%','$8,000' ],
+      ['SKU-APP-1234','女装连衣裙',   '服装',    '1','1','2026-03-18','自发货','10%','$5,500' ],
+      ['SKU-HOME-058','空气炸锅XL',   '家居',    '1','1','2026-03-19','FULL',  '20%','$12,000'],
+      ['SKU-TOY-0823','积木套装Pro',  '玩具',    '1','0','—',         'FULL',  '—',  '—'      ],
+      ['SKU-TOY-1102','遥控赛车',     '玩具',    '1','0','—',         '自发货','—',  '—'      ],
+      ['SKU-JEW-0041','18K金耳环',    '珠宝',    '1','1','2026-03-22','本土店','8%', '$2,200' ],
+      ['SKU-BEA-0312','精华液套装',   '美妆',    '1','1','2026-03-17','FULL',  '18%','$9,800' ],
+      ['SKU-PET-0223','自动喂食器',   '宠物',    '1','1','2026-03-21','FULL',  '12%','$4,500' ],
+      ['SKU-SPO-0672','跑步鞋Pro',    '运动户外','1','1','2026-03-19','FULL',  '22%','$15,000'],
+      ['SKU-3C-1105', '无线鼠标',     '3C数码',  '1','0','—',         '自发货','—',  '—'      ],
+    ],
+  },
+};
+
+// 指标 → 来源表 + 派生逻辑
+const METRIC_SOURCE = {
+  NMV:     { tableIds:['orders'], title:'NMV 净成交额',
+             formula:'SELECT SUM(gmv) AS nmv\nFROM dw_orders_detail\nWHERE order_date BETWEEN \'2026-03-26\' AND \'2026-04-02\'\n  AND is_refund = 0',
+             filter:'日期范围：大促全程 3/26–4/2；排除取消与退款订单（is_refund=0）' },
+  UV:      { tableIds:['orders'], title:'UV 独立访客数',
+             formula:'-- 流量日志表（dw_traffic_uv）待接入，当前用订单表估算\nSELECT COUNT(DISTINCT buyer_id) AS uv\nFROM dw_orders_detail\nWHERE order_date BETWEEN \'2026-03-26\' AND \'2026-04-02\'',
+             filter:'注：真实 UV 应取自流量日志，当前为订单去重访客近似值，存在低估' },
+  CVR:     { tableIds:['orders'], title:'CVR 转化率',
+             formula:'SELECT\n  COUNT(DISTINCT order_id)::float\n  / NULLIF(COUNT(DISTINCT buyer_id),0) AS cvr\nFROM dw_orders_detail\nWHERE order_date BETWEEN \'2026-03-26\' AND \'2026-04-02\'\n  AND is_refund = 0',
+             filter:'分子 = 成交订单数；分母 = 独立访客数（同 UV 口径）' },
+  ASP:     { tableIds:['orders'], title:'ASP 客单价',
+             formula:'SELECT\n  SUM(gmv) / NULLIF(COUNT(DISTINCT order_id),0) AS asp\nFROM dw_orders_detail\nWHERE order_date BETWEEN \'2026-03-26\' AND \'2026-04-02\'\n  AND is_refund = 0',
+             filter:'NMV ÷ 成交订单数；按品类/SKU/履约方式可做分组' },
+  TSI:     { tableIds:['orders'], title:'TSI 总销售件数',
+             formula:'SELECT SUM(qty) AS tsi\nFROM dw_orders_detail\nWHERE order_date BETWEEN \'2026-03-26\' AND \'2026-04-02\'\n  AND is_refund = 0',
+             filter:'所有成交订单行项目的 qty 求和，排除退款行' },
+  WoW:     { tableIds:['orders'], title:'WoW 周环比',
+             formula:'SELECT\n  (nmv_curr - nmv_prev) / NULLIF(nmv_prev, 0) AS wow\nFROM (\n  SELECT\n    SUM(CASE WHEN order_date >= \'2026-03-26\' THEN gmv END) AS nmv_curr,\n    SUM(CASE WHEN order_date BETWEEN \'2026-03-19\' AND \'2026-03-25\' THEN gmv END) AS nmv_prev\n  FROM dw_orders_detail WHERE is_refund=0\n)',
+             filter:'对比周期：上周同档期 3/19–3/25；若大促跨周需对齐天数口径' },
+  YoY:     { tableIds:['orders'], title:'YoY 年同比',
+             formula:'SELECT\n  (nmv_curr - nmv_yoy) / NULLIF(nmv_yoy, 0) AS yoy\nFROM (\n  SELECT\n    SUM(CASE WHEN YEAR(order_date)=2026 THEN gmv END) AS nmv_curr,\n    SUM(CASE WHEN YEAR(order_date)=2025 THEN gmv END) AS nmv_yoy\n  FROM dw_orders_detail WHERE is_refund=0\n    AND MONTH(order_date) * 100 + DAY(order_date)\n        BETWEEN 326 AND 402\n)',
+             filter:'去年同月日范围：3/26–4/2 2025；若去年无同期大促需备注' },
+  Goal:    { tableIds:['promo'], title:'vs Goal 达成率',
+             formula:'-- 目标值来自 dw_sku_promo_status\nSELECT\n  SUM(gmv_actual) / SUM(est_gmv_target) AS vs_goal\nFROM (\n  SELECT p.sku_id, p.est_gmv_target,\n         SUM(o.gmv) AS gmv_actual\n  FROM dw_sku_promo_status p\n  LEFT JOIN dw_orders_detail o USING (sku_id)\n  WHERE p.promo_enrolled = 1\n    AND o.order_date BETWEEN \'2026-03-26\' AND \'2026-04-02\'\n  GROUP BY 1, 2\n)',
+             filter:'分子：大促期间实际 NMV；分母：报名时填写的预估 GMV 目标（est_gmv_target）' },
+  SKUPart: { tableIds:['promo'], title:'大促产品参与率',
+             formula:'SELECT\n  SUM(promo_enrolled) / NULLIF(SUM(is_live), 0) AS sku_part_rate\nFROM dw_sku_promo_status\nWHERE is_live = 1',
+             filter:'分子：is_live=1 且 promo_enrolled=1 的 SKU 数；分母：全部在架 SKU（is_live=1）' },
+  Live:    { tableIds:['promo'], title:'Live Listing 在架数量',
+             formula:'SELECT COUNT(*) AS live_cnt\nFROM dw_sku_promo_status\nWHERE is_live = 1',
+             filter:'统计 is_live=1 的 SKU 总数；快照为每日 00:00 UTC 刷新' },
+  Segment: { tableIds:['orders'], title:'板块 NMV / 渗透率',
+             formula:'SELECT\n  fulfillment,\n  SUM(gmv)   AS nmv,\n  SUM(gmv) / SUM(SUM(gmv)) OVER() AS penetration\nFROM dw_orders_detail\nWHERE order_date BETWEEN \'2026-03-26\' AND \'2026-04-02\'\n  AND is_refund = 0\nGROUP BY fulfillment',
+             filter:'按 fulfillment 字段分组（FULL / 自发货 / 本土店）；渗透率 = 该板块 NMV ÷ 站点总 NMV' },
+  Category:{ tableIds:['orders'], title:'品类 NMV / WoW / YoY',
+             formula:'SELECT category,\n  SUM(gmv) AS nmv\nFROM dw_orders_detail\nWHERE order_date BETWEEN \'2026-03-26\' AND \'2026-04-02\'\n  AND is_refund = 0\nGROUP BY category\nORDER BY nmv DESC',
+             filter:'按 category 字段聚合；WoW/YoY 在外层再关联对应周期数据' },
+  SKU:     { tableIds:['orders','promo'], title:'单品 NMV / TSI / UV / CVR / ASP',
+             formula:'SELECT sku_id, sku_name,\n  SUM(qty)   AS tsi,\n  SUM(gmv)   AS nmv,\n  SUM(gmv) / NULLIF(SUM(qty),0) AS asp\nFROM dw_orders_detail\nWHERE order_date BETWEEN \'2026-03-26\' AND \'2026-04-02\'\n  AND is_refund = 0\nGROUP BY 1,2\nORDER BY nmv DESC',
+             filter:'单品粒度聚合；UV/CVR 须 JOIN 流量日志表（待接入）' },
+};
+
+// ── 弹窗渲染 ──
+function showSource(metricKey, extraTitle) {
+  const src = METRIC_SOURCE[metricKey];
+  if (!src) return;
+  document.getElementById('src-modal-title').textContent =
+    '📋 数据溯源 · ' + (extraTitle || src.title);
+
+  const tableHTML = src.tableIds.map(tid => {
+    const t = RAW_TABLES[tid];
+    if (!t) return '';
+    const thead = t.cols.map(c => `<th>${c}</th>`).join('');
+    const tbody = t.sample.map(row =>
+      '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>'
+    ).join('');
+    return `
+      <div class="src-section">
+        <div class="src-section-title">原始表预览（前 ${t.sample.length} 行）</div>
+        <div class="src-table-info">
+          <span class="src-table-name">${t.name}</span>
+          <span class="src-table-desc">${t.desc}</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="raw-table"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
+        </div>
+        <div class="raw-note">↑ 实际表行数约数十万～数百万，此处仅展示样本。</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('src-modal-body').innerHTML = `
+    <div class="src-section">
+      <div class="src-section-title">派生公式 / SQL 口径</div>
+      <div class="src-formula">${src.formula.replace(/\n/g,'<br/>')}</div>
+    </div>
+    <div class="src-section">
+      <div class="src-section-title">筛选条件说明</div>
+      <div class="src-filter">${src.filter}</div>
+    </div>
+    ${tableHTML}`;
+
+  document.getElementById('source-modal').classList.add('open');
+}
+
+function closeSource() {
+  document.getElementById('source-modal').classList.remove('open');
+}
+function handleSrcOverlay(e) {
+  if (e.target === document.getElementById('source-modal')) closeSource();
+}
+
+// ============================================================
+// ANOMALY ENGINE
+// ============================================================
+const ATTR = {
+  UV_DROP:    { cause:'大促流量回落 / 竞品抢量 / 站内资源减少', action:'协调 banner 位与搜索加权，核对活动周期' },
+  CVR_DROP:   { cause:'价格偏高 / 主图详情页问题 / 竞品降价', action:'查主图关键词及评论，对标竞品价格' },
+  ASP_HIGH:   { cause:'促销集中在高价位品，结构偏移，可持续性存疑', action:'分析价格带分布，警惕大促后回落' },
+  NMV_NO_UV:  { cause:'NMV 涨幅远超流量，靠 ASP/CVR 集中爆发', action:'警惕大促结束后回落，关注可持续性' },
+  PROMO_LOW:  { cause:'商家利润空间不够 / 卖家未参促忽略后台卡片', action:'申请提高补贴点位，主动推送符合条件未参与商家' },
+  YOY_NEG:    { cause:'同比转负，竞争格局或品类需求出现变化', action:'对标去年同期运营策略，排查流量/转化双降原因' },
+  SEG_DROP:   { cause:'大促期间流量向 FULL 集中，自发货竞争力下降', action:'引导商家升级为海外仓，提供备货支持' },
+};
+
+function runAnomalyEngine() {
+  const anomalies = [];
+
+  // --- Segment level ---
+  SEGS.forEach(seg => {
+    if (seg.wow < -15) {
+      anomalies.push({
+        id: 'seg-' + seg.id,
+        sev: Math.abs(seg.wow) > 25 ? 'high' : 'medium',
+        loc: seg.name,
+        metric: 'WoW',
+        dev: pct(seg.wow),
+        attr: ATTR.SEG_DROP,
+        targetId: 'seg-table-body',
+        highlightId: 'seg-' + seg.id,
+      });
+    }
+  });
+
+  // --- Category level ---
+  const siteYoY = ((2500-1952)/1952*100);
+  CATS.forEach(cat => {
+    const vsGoal = cat.nmv / cat.goal;
+    const yoy = (cat.nmv - cat.nmvYoY) / cat.nmvYoY * 100;
+    const uvWow  = (cat.uv - cat.uvPrev)   / cat.uvPrev   * 100;
+    const cvrWow = (cat.cvr - cat.cvrPrev) / cat.cvrPrev  * 100;
+    const aspWow = (cat.asp - cat.aspPrev) / cat.aspPrev  * 100;
+    const nmvWow = (cat.nmv - cat.nmvPrev) / cat.nmvPrev  * 100;
+
+    if (vsGoal < 0.8) {
+      anomalies.push({
+        id: 'cat-goal-' + cat.id,
+        sev: vsGoal < 0.7 ? 'high' : 'medium',
+        loc: cat.icon + ' ' + cat.name,
+        metric: 'vs Goal',
+        dev: (vsGoal * 100).toFixed(1) + '%',
+        attr: ATTR.PROMO_LOW,
+        targetId: 'cat-progress-list',
+        highlightId: 'catrow-' + cat.id,
+      });
+    }
+    if (yoy < 0) {
+      anomalies.push({
+        id: 'cat-yoy-' + cat.id,
+        sev: yoy < -10 ? 'high' : 'medium',
+        loc: cat.icon + ' ' + cat.name,
+        metric: 'YoY',
+        dev: pct(yoy),
+        attr: ATTR.YOY_NEG,
+        targetId: 'yoy-chart',
+        highlightId: 'catrow-' + cat.id,
+      });
+    }
+    if (nmvWow > 20 && uvWow < 5) {
+      anomalies.push({
+        id: 'cat-nmu-' + cat.id,
+        sev: 'medium',
+        loc: cat.icon + ' ' + cat.name,
+        metric: 'NMV WoW',
+        dev: pct(nmvWow) + ' (UV ' + pct(uvWow) + ')',
+        attr: ATTR.NMV_NO_UV,
+        targetId: 'cat-progress-list',
+        highlightId: 'catrow-' + cat.id,
+      });
+    }
+    if (aspWow > 40 && uvWow < 0) {
+      anomalies.push({
+        id: 'cat-asp-' + cat.id,
+        sev: 'medium',
+        loc: cat.icon + ' ' + cat.name,
+        metric: 'ASP WoW',
+        dev: pct(aspWow),
+        attr: ATTR.ASP_HIGH,
+        targetId: 'cat-progress-list',
+        highlightId: 'catrow-' + cat.id,
+      });
+    }
+  });
+
+  // --- SKU level ---
+  SHAKERS.forEach(sku => {
+    const biggest = sku.anomaly;
+    let attr, metric, dev;
+    if (biggest === 'uv') {
+      attr = ATTR.UV_DROP; metric = 'UV WoW'; dev = pct(sku.uvWow);
+    } else {
+      attr = ATTR.CVR_DROP; metric = 'CVR WoW'; dev = pct(sku.cvrWow);
+    }
+    if (Math.abs(sku.wow) > 15) {
+      anomalies.push({
+        id: 'sku-' + sku.id,
+        sev: Math.abs(sku.wow) > 30 ? 'high' : (Math.abs(sku.wow) > 20 ? 'medium' : 'low'),
+        loc: '📦 ' + sku.name,
+        metric,
+        dev,
+        attr,
+        targetId: 'shakers-table',
+        highlightId: 'sku-' + sku.id,
+      });
+    }
+  });
+
+  // sort: high > medium > low
+  const order = { high: 0, medium: 1, low: 2 };
+  anomalies.sort((a, b) => order[a.sev] - order[b.sev]);
+  return anomalies;
+}
+
+// ============================================================
+// RENDER: KPI Cards
+// ============================================================
+function renderKPI() {
+  const kpis = [
+    { label:'站点本周 NMV', val:'$2,500K', sub:'vs $2,219K 上周', cls:'',
+      tip:'净成交额 = UV × CVR × ASP', srcKey:'NMV' },
+    { label:'WoW 周环比', val:'+26.5%', sub:'↑ 促销驱动增长', cls:'up',
+      tip:'周环比 = (本周 - 上周) ÷ 上周', srcKey:'WoW' },
+    { label:'YoY 同比', val:'+28.1%', sub:'vs $1,952K 去年同期', cls:'up',
+      tip:'同比 = (本期 - 去年同期) ÷ 去年同期', srcKey:'YoY' },
+    { label:'vs Goal 达成率', val:'89.9%', sub:'$2,500K / $2,780K', cls:'neutral',
+      tip:'实际NMV ÷ 目标NMV', srcKey:'Goal' },
+    { label:'FULL 渗透率', val:'62.0%', sub:'海外仓占总NMV', cls:'up',
+      tip:'海外仓NMV ÷ 站点总NMV', srcKey:'Segment' },
+    { label:'Live Listing', val:'8,342', sub:'当前在架 SKU 数', cls:'neutral',
+      tip:'实时在架且有效的SKU总数', srcKey:'Live' },
+  ];
+  document.getElementById('kpi-cards').innerHTML = kpis.map(k => `
+    <div class="card kpi-card">
+      <div class="kpi-label">
+        <span class="tip" data-t="${k.tip}">${k.label}</span>
+        <button class="src-btn" onclick="showSource('${k.srcKey}','${k.label}')">📋 源</button>
+      </div>
+      <div class="kpi-value ${k.cls}">${k.val}</div>
+      <div class="kpi-meta ${k.cls}">${k.sub}</div>
+    </div>`).join('');
+}
+
+// ============================================================
+// RENDER: Anomaly Panel
+// ============================================================
+function renderAnomalyPanel(anomalies) {
+  document.getElementById('anom-count').textContent = anomalies.length;
+  // 异常指标 → 溯源 key 映射
+  const anomSrcKey = m => {
+    if (/UV/.test(m))  return 'UV';
+    if (/CVR/.test(m)) return 'CVR';
+    if (/ASP/.test(m)) return 'ASP';
+    if (/Goal|达成/.test(m)) return 'Goal';
+    if (/WoW/.test(m)) return 'WoW';
+    if (/YoY/.test(m)) return 'YoY';
+    return 'NMV';
+  };
+  document.getElementById('anomaly-list').innerHTML = anomalies.map(a => `
+    <div class="anom-row" onclick="jumpToAnomaly('${a.highlightId}','${a.targetId}')">
+      <div><span class="anom-sev sev-${a.sev}">${{high:'🔴 高',medium:'🟡 中',low:'⚪ 低'}[a.sev]}</span></div>
+      <div class="anom-loc">${a.loc}</div>
+      <div class="anom-metric"><span class="tip" data-t="${a.metric}">${a.metric}</span>：<span class="anom-dev ${a.sev==='high'?'dn':''}"> ${a.dev}</span></div>
+      <div class="anom-cause">💡 ${a.attr.cause}</div>
+      <div class="anom-action">→ ${a.attr.action}</div>
+      <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+        <button class="src-btn" onclick="event.stopPropagation();showSource('${anomSrcKey(a.metric)}','${a.metric}')">📋 查原始</button>
+        <span style="font-size:11px;color:var(--sub);">跳转 ↗</span>
+      </div>
+    </div>`).join('');
+}
+
+function jumpToAnomaly(highlightId, targetId) {
+  const el = document.getElementById(highlightId) || document.getElementById(targetId);
+  if (el) { el.scrollIntoView({ behavior:'smooth', block:'center' }); }
+  // flash highlight
+  if (highlightId) {
+    const t = document.getElementById(highlightId);
+    if (t) {
+      t.style.outline = '2px solid var(--blue)';
+      t.style.outlineOffset = '2px';
+      setTimeout(() => { t.style.outline = ''; t.style.outlineOffset = ''; }, 1800);
+    }
+  }
+}
+
+// ============================================================
+// RENDER: Layer 1 — Category Progress Bars
+// ============================================================
+function renderCatProgress(anomalyIds) {
+  const sorted = [...CATS].sort((a, b) => {
+    const dA = (a.nmv - a.nmvPrev);
+    const dB = (b.nmv - b.nmvPrev);
+    return dB - dA;
+  });
+
+  const rows = sorted.map(cat => {
+    const vsGoal = cat.nmv / cat.goal;
+    const vsGoalPct = (vsGoal * 100).toFixed(1);
+    const wow = (cat.nmv - cat.nmvPrev) / cat.nmvPrev * 100;
+    const fillColor = vsGoal >= 0.9 ? '#00B96B' : vsGoal >= 0.8 ? '#FAAD14' : '#FF4D4F';
+    const isHighAnom = anomalyIds.filter(id => id.includes(cat.id) && id.includes('goal')).length > 0;
+    const isMidAnom  = anomalyIds.filter(id => id.includes(cat.id)).length > 0 && !isHighAnom;
+    const rowCls = isHighAnom ? 'anom-high-row' : isMidAnom ? 'anom-mid-row' : '';
+
+    return `<div class="cat-row ${rowCls}" id="catrow-${cat.id}">
+      <div class="cat-name" style="gap:2px">
+        ${cat.icon} ${cat.name}
+        <button class="src-btn" onclick="event.stopPropagation();showSource('Category','${cat.name} NMV')">📋</button>
+      </div>
+      <div>
+        <div class="prog-wrap">
+          <div class="prog-fill" style="width:${Math.min(vsGoal,1)*100}%;background:${fillColor};"></div>
+        </div>
+      </div>
+      <div class="pct-text" style="color:${fillColor}">${vsGoalPct}%</div>
+      <div class="nmv-text">$${cat.nmv}K</div>
+      <div class="wow-text ${colorWow(wow)}">${wowBar(wow)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('cat-progress-list').innerHTML = rows;
+}
+
+// ============================================================
+// RENDER: Layer 2 — Segment Table
+// ============================================================
+function renderSegTable(anomalyIds) {
+  const total = SEGS.reduce((s, seg) => s + seg.nmv, 0);
+  document.getElementById('seg-table-body').innerHTML = SEGS.map(seg => {
+    const pen = ((seg.nmv / total) * 100).toFixed(1) + '%';
+    const isAnom = anomalyIds.some(id => id.includes(seg.id));
+    const wowCls = seg.wow < -15 ? 'cell-high' : seg.wow < 0 ? 'cell-warn' : '';
+    return `
+      <tr id="seg-${seg.id}">
+        <td><span class="seg-name"><span class="seg-dot" style="background:${seg.color}"></span>${seg.name}</span></td>
+        <td>$${fmtK(seg.nmv)}K</td>
+        <td class="${wowCls}">${pct(seg.wow)}</td>
+        <td>$${fmtK(seg.ytd)}K</td>
+        <td>${pen}</td>
+        <td><div class="sparkline" id="spark-${seg.id}"></div></td>
+        <td><button class="src-btn" onclick="showSource('Segment','${seg.name} 板块数据')">📋 查原始</button></td>
+      </tr>`;
+  }).join('');
+
+  // init sparklines
+  SEGS.forEach(seg => {
+    const el = document.getElementById('spark-' + seg.id);
+    if (!el) return;
+    const c = echarts.init(el);
+    c.setOption({
+      grid:{top:2,bottom:2,left:2,right:2},
+      xAxis:{type:'category',show:false,data:WEEK_LABELS},
+      yAxis:{type:'value',show:false},
+      series:[{type:'line',data:seg.nmvHist,
+        lineStyle:{color:seg.color,width:1.5},
+        symbol:'none',
+        areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,
+          colorStops:[{offset:0,color:seg.color+'44'},{offset:1,color:seg.color+'00'}]}}}],
+      animation:false,
+    });
+  });
+}
+
+// ============================================================
+// RENDER: Layer 3 — Movers & Shakers
+// ============================================================
+function skuTableHTML(skus, isShaker, anomalyIds) {
+  const thead = `<thead><tr>
+    <th>#</th><th>商品名</th><th>品类</th>
+    <th><span class="tip" data-t="总销售件数">TSI</span></th>
+    <th><span class="tip" data-t="独立访客数">UV</span></th>
+    <th><span class="tip" data-t="转化率">CVR</span></th>
+    <th><span class="tip" data-t="客单价">ASP</span></th>
+    <th><span class="tip" data-t="净成交额">NMV</span></th>
+    <th><span class="tip" data-t="周环比">WoW</span></th>
+    <th>溯源</th>
+  </tr></thead>`;
+
+  const tbody = skus.map((sku, i) => {
+    const isAnom = anomalyIds.some(id => id.includes(sku.id));
+    const wowCls = isShaker ? (Math.abs(sku.wow)>30 ? 'cell-high' : 'cell-warn') : '';
+    const uvCls  = sku.anomaly === 'uv'  ? 'cell-high' : '';
+    const cvrCls = sku.anomaly === 'cvr' ? 'cell-high' : '';
+    return `<tr id="sku-${sku.id}" onclick="onSKUClick('${sku.id}')" style="cursor:pointer;">
+      <td><span class="rank-badge ${!isShaker?'top':''}">${i+1}</span></td>
+      <td style="font-weight:600;max-width:110px;overflow:hidden;text-overflow:ellipsis;">${sku.name}</td>
+      <td style="color:var(--sub)">${sku.cat}</td>
+      <td>${sku.tsi.toLocaleString()}</td>
+      <td class="${uvCls}">${(sku.uv/1000).toFixed(1)}K</td>
+      <td class="${cvrCls}">${sku.cvr.toFixed(1)}%</td>
+      <td>$${sku.asp}</td>
+      <td>$${fmtK(sku.nmv)}</td>
+      <td class="${wowCls} ${colorWow(sku.wow)}">${pct(sku.wow)}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="src-btn" onclick="showSource('SKU','${sku.name}')">📋</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return thead + '<tbody>' + tbody + '</tbody>';
+}
+
+function renderMoversShakers(anomalyIds) {
+  document.getElementById('movers-table').innerHTML  = skuTableHTML(MOVERS, false, anomalyIds);
+  document.getElementById('shakers-table').innerHTML = skuTableHTML(SHAKERS, true, anomalyIds);
+}
+
+function onSKUClick(skuId) {
+  const sku = [...MOVERS, ...SHAKERS].find(s => s.id === skuId);
+  if (!sku) return;
+
+  // deselect all
+  document.querySelectorAll('.selected-row').forEach(r => r.classList.remove('selected-row'));
+  const row = document.getElementById('sku-' + skuId);
+  if (row) row.classList.add('selected-row');
+
+  selectedSKU = sku;
+  const wrap = document.getElementById('drilldown-wrap');
+  wrap.style.display = 'block';
+  document.getElementById('drilldown-title').textContent =
+    `🔍 下钻：${sku.name}（${sku.cat}）— 近8周 UV / CVR / ASP 趋势`;
+
+  setTimeout(() => {
+    wrap.scrollIntoView({ behavior:'smooth', block:'center' });
+    renderDrilldown(sku);
+  }, 50);
+}
+
+function closeDrilldown() {
+  document.getElementById('drilldown-wrap').style.display = 'none';
+  document.querySelectorAll('.selected-row').forEach(r => r.classList.remove('selected-row'));
+  selectedSKU = null;
+}
+
+function renderDrilldown(sku) {
+  const el = document.getElementById('drilldown-chart');
+  let chart = echarts.getInstanceByDom(el);
+  if (chart) chart.dispose();
+  chart = echarts.init(el);
+
+  chart.setOption({
+    tooltip: { trigger:'axis', axisPointer:{type:'cross'} },
+    legend: { data:['UV (左轴)','CVR % (右轴)','ASP $ (右轴)'], top:4 },
+    grid: { top:48, bottom:32, left:60, right:70 },
+    xAxis: { type:'category', data: WEEK_LABELS, boundaryGap:false },
+    yAxis: [
+      { type:'value', name:'UV', nameTextStyle:{color:'#1677FF'},
+        axisLabel:{formatter: v => v >= 1000 ? (v/1000).toFixed(0)+'K' : v} },
+      { type:'value', name:'CVR % / ASP $', nameTextStyle:{color:'#888'},
+        position:'right', splitLine:{show:false},
+        axisLabel:{formatter: v => v} }
+    ],
+    series: [
+      { name:'UV (左轴)',    type:'line', data: sku.hist.uv,
+        itemStyle:{color:'#1677FF'}, lineStyle:{width:2}, symbol:'circle', symbolSize:5,
+        areaStyle:{color:'rgba(22,119,255,0.08)'} },
+      { name:'CVR % (右轴)', type:'line', data: sku.hist.cvr, yAxisIndex:1,
+        itemStyle:{color:'#FF4D4F'}, lineStyle:{width:2,type:'dashed'}, symbol:'circle', symbolSize:5 },
+      { name:'ASP $ (右轴)', type:'line', data: sku.hist.asp, yAxisIndex:1,
+        itemStyle:{color:'#FAAD14'}, lineStyle:{width:2,type:'dotted'}, symbol:'diamond', symbolSize:5 },
+    ],
+    animation: true,
+  });
+}
+
+// ============================================================
+// ECharts: YoY Bar Chart
+// ============================================================
+function renderYoYChart() {
+  const el = document.getElementById('yoy-chart');
+  let c = echarts.getInstanceByDom(el);
+  if (c) c.dispose();
+  c = echarts.init(el);
+
+  const sorted = [...CATS].sort((a,b) => b.nmv - a.nmv);
+  const names   = sorted.map(x => x.icon + x.name);
+  const currNMV = sorted.map(x => x.nmv);
+  const yoyNMV  = sorted.map(x => x.nmvYoY);
+  const yoyPcts = sorted.map(x => +((x.nmv - x.nmvYoY)/x.nmvYoY*100).toFixed(1));
+
+  c.setOption({
+    tooltip: {
+      trigger: 'axis',
+      formatter: params => {
+        const d = params[0]?.dataIndex ?? 0;
+        const cat = sorted[d];
+        const yoy = yoyPcts[d];
+        return `${cat.icon}${cat.name}<br/>本周：$${cat.nmv}K<br/>去年：$${cat.nmvYoY}K<br/>YoY：${yoy>=0?'+':''}${yoy}%`;
+      }
+    },
+    grid: { top:8, bottom:80, left:10, right:10, containLabel:true },
+    xAxis: { type:'category', data:names, axisLabel:{fontSize:10,interval:0,rotate:30} },
+    yAxis: { type:'value', axisLabel:{formatter:v=>'$'+v+'K'}, splitLine:{lineStyle:{color:'#F0F0F0'}} },
+    series: [
+      { name:'本周 NMV', type:'bar', data:currNMV,
+        itemStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,
+          colorStops:[{offset:0,color:'#4096FF'},{offset:1,color:'#1677FF88'}]}},
+        barWidth:'35%', label:{show:true,position:'top',fontSize:9,formatter:'{c}K'} },
+      { name:'去年同期', type:'bar', data:yoyNMV,
+        itemStyle:{color:'#D9D9D9'}, barWidth:'35%' },
+    ],
+    legend: { data:['本周 NMV','去年同期'], bottom:0, textStyle:{fontSize:11} },
+    animation: true,
+  });
+}
+
+// ============================================================
+// ECharts: Gauge
+// ============================================================
+function renderGauges() {
+  const skuRate = (1124/1856*100).toFixed(1);
+  const nmvRate = (2500/2780*100).toFixed(1);
+
+  function makeGauge(id, val, label, warnAt) {
+    const el = document.getElementById(id);
+    let c = echarts.getInstanceByDom(el);
+    if (c) c.dispose();
+    c = echarts.init(el);
+    const color = val >= 90 ? '#00B96B' : val >= 80 ? '#FAAD14' : '#FF4D4F';
+    c.setOption({
+      series:[{
+        type:'gauge',
+        startAngle:210, endAngle:-30,
+        min:0, max:100,
+        radius:'88%',
+        axisLine:{lineStyle:{width:10,color:[[val/100,color],[1,'#F0F0F0']]}},
+        axisTick:{show:false},
+        splitLine:{show:false},
+        axisLabel:{show:false},
+        pointer:{width:4,length:'60%'},
+        detail:{valueAnimation:true,fontSize:20,fontWeight:700,color,
+                offsetCenter:[0,'30%'],formatter:'{value}%'},
+        data:[{value:+val,name:label}],
+        title:{fontSize:11,color:'#888',offsetCenter:[0,'60%']},
+        animation:true,
+      }],
+    });
+  }
+
+  makeGauge('gauge-sku', +skuRate, '产品参与率', 80);
+  makeGauge('gauge-nmv', +nmvRate, 'NMV 达成率', 90);
+}
+
+// ============================================================
+// MASTER RENDER
+// ============================================================
+function renderAll() {
+  const anomalies = runAnomalyEngine();
+  const anomalyIds = anomalies.map(a => a.id);
+
+  renderKPI();
+  renderAnomalyPanel(anomalies);
+  renderCatProgress(anomalyIds);
+  renderYoYChart();
+  renderGauges();
+  renderSegTable(anomalyIds);
+  renderMoversShakers(anomalyIds);
+}
+
+// ============================================================
+// FILTERS
+// ============================================================
+function onFilter() {
+  S.cat   = document.getElementById('f-cat').value;
+  S.seg   = document.getElementById('f-seg').value;
+  S.cycle = document.getElementById('f-cycle').value;
+  closeDrilldown();
+  renderAll();
+}
+
+// ============================================================
+// METRIC DEFS TOGGLE
+// ============================================================
+function toggleDefs() {
+  const body  = document.getElementById('defs-body');
+  const arrow = document.getElementById('defs-arrow');
+  const open  = body.classList.toggle('open');
+  arrow.textContent = open ? '▲' : '▼';
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  renderAll();
+  window.addEventListener('resize', () => {
+    echarts.getInstanceByDom(document.getElementById('yoy-chart'))?.resize();
+    echarts.getInstanceByDom(document.getElementById('gauge-sku'))?.resize();
+    echarts.getInstanceByDom(document.getElementById('gauge-nmv'))?.resize();
+    SEGS.forEach(s => echarts.getInstanceByDom(document.getElementById('spark-'+s.id))?.resize());
+    if (selectedSKU) echarts.getInstanceByDom(document.getElementById('drilldown-chart'))?.resize();
+  });
+});
+</script>
+</body>
+</html>

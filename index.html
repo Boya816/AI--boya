@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日程管理</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .sidebar { width: 220px; min-height: 100vh; }
+    .main-content { margin-left: 220px; min-height: 100vh; }
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.45); z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-box {
+      background: white; border-radius: 14px; padding: 24px;
+      width: 90%; max-width: 460px; max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .progress-bar { transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+    .nav-item { transition: background 0.15s, color 0.15s; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    input[type="time"], input[type="number"], input[type="date"] { color-scheme: light; }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans text-slate-800">
+
+<!-- Sidebar -->
+<div class="sidebar fixed top-0 left-0 bg-slate-900 text-white flex flex-col py-6 px-3 z-10">
+  <div class="mb-8 px-3">
+    <h1 class="text-lg font-bold tracking-tight">📅 日程管理</h1>
+    <p class="text-slate-500 text-xs mt-1" id="sidebar-date"></p>
+  </div>
+
+  <nav class="flex-1 space-y-1">
+    <button onclick="showPage('today')" id="nav-today"
+      class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white text-left">
+      <span>📊</span><span class="text-sm font-medium">今日看板</span>
+    </button>
+    <button onclick="showPage('tasks')" id="nav-tasks"
+      class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white text-left">
+      <span>✅</span><span class="text-sm font-medium">任务管理</span>
+    </button>
+    <button onclick="showPage('learning')" id="nav-learning"
+      class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white text-left">
+      <span>📚</span><span class="text-sm font-medium">学习进度</span>
+    </button>
+    <button onclick="showPage('habits')" id="nav-habits"
+      class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white text-left">
+      <span>🔥</span><span class="text-sm font-medium">习惯打卡</span>
+    </button>
+  </nav>
+
+  <div class="px-3 mt-4">
+    <p class="text-slate-600 text-xs">数据保存在本地浏览器</p>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main-content p-8">
+
+  <!-- ===== TODAY PAGE ===== -->
+  <div id="page-today" class="page">
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-slate-800">今日看板</h2>
+      <p class="text-slate-400 text-sm mt-1" id="today-date-display"></p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <p class="text-slate-400 text-xs mb-2">今日任务</p>
+        <p class="text-3xl font-bold text-slate-800" id="stat-tasks">0/0</p>
+        <p class="text-slate-400 text-xs mt-1">已完成 / 总计</p>
+      </div>
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <p class="text-slate-400 text-xs mb-2">习惯打卡</p>
+        <p class="text-3xl font-bold text-slate-800" id="stat-habits">0/0</p>
+        <p class="text-slate-400 text-xs mt-1">已完成 / 总计</p>
+      </div>
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <p class="text-slate-400 text-xs mb-2">专注时间</p>
+        <p class="text-3xl font-bold text-slate-800" id="stat-focus">0</p>
+        <p class="text-slate-400 text-xs mt-1">分钟</p>
+      </div>
+    </div>
+
+    <!-- Daily Log -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
+      <h3 class="font-semibold text-slate-700 mb-4">今日记录</h3>
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">🌅 起床时间</label>
+          <input type="time" id="wake-time" onchange="saveDailyLog()"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">🌙 睡觉时间</label>
+          <input type="time" id="sleep-time" onchange="saveDailyLog()"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">⏱ 专注时间（分钟）</label>
+          <input type="number" id="focus-time" min="0" max="1440" onchange="saveDailyLog()" placeholder="0"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-6">
+      <!-- Today Tasks -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-slate-700">今日任务</h3>
+          <button onclick="showPage('tasks')" class="text-indigo-400 text-xs hover:text-indigo-600">查看全部 →</button>
+        </div>
+        <div id="today-tasks-list"></div>
+      </div>
+
+      <!-- Today Habits -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-slate-700">今日习惯</h3>
+          <button onclick="showPage('habits')" class="text-indigo-400 text-xs hover:text-indigo-600">查看全部 →</button>
+        </div>
+        <div id="today-habits-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TASKS PAGE ===== -->
+  <div id="page-tasks" class="page hidden">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-2xl font-bold text-slate-800">任务管理</h2>
+        <p class="text-slate-400 text-sm mt-1">管理你的工作与学习任务</p>
+      </div>
+      <button onclick="showModal('task-modal')"
+        class="bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-600 transition-colors shadow-sm">
+        + 添加任务
+      </button>
+    </div>
+
+    <div class="flex gap-2 mb-5">
+      <button onclick="setTaskFilter('all')" id="filter-all"
+        class="task-filter px-4 py-1.5 rounded-full text-sm font-medium bg-indigo-500 text-white">全部</button>
+      <button onclick="setTaskFilter('today')" id="filter-today"
+        class="task-filter px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-500 border border-gray-200 hover:bg-gray-50">今日</button>
+      <button onclick="setTaskFilter('pending')" id="filter-pending"
+        class="task-filter px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-500 border border-gray-200 hover:bg-gray-50">待完成</button>
+      <button onclick="setTaskFilter('done')" id="filter-done"
+        class="task-filter px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-500 border border-gray-200 hover:bg-gray-50">已完成</button>
+    </div>
+
+    <div id="tasks-list" class="space-y-2"></div>
+  </div>
+
+  <!-- ===== LEARNING PAGE ===== -->
+  <div id="page-learning" class="page hidden">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-2xl font-bold text-slate-800">学习进度</h2>
+        <p class="text-slate-400 text-sm mt-1">追踪课程、书籍和技能进展</p>
+      </div>
+      <button onclick="showModal('learning-modal')"
+        class="bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-600 transition-colors shadow-sm">
+        + 添加项目
+      </button>
+    </div>
+    <div id="learning-list" class="grid grid-cols-2 gap-4"></div>
+  </div>
+
+  <!-- ===== HABITS PAGE ===== -->
+  <div id="page-habits" class="page hidden">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-2xl font-bold text-slate-800">习惯打卡</h2>
+        <p class="text-slate-400 text-sm mt-1">坚持每日打卡，积累连续天数</p>
+      </div>
+      <button onclick="showModal('habit-modal')"
+        class="bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-600 transition-colors shadow-sm">
+        + 添加习惯
+      </button>
+    </div>
+    <div id="habits-list" class="space-y-4"></div>
+  </div>
+
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Task Modal -->
+<div id="task-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-bold text-lg">添加任务</h3>
+      <button onclick="hideModal('task-modal')" class="text-slate-300 hover:text-slate-500 text-2xl leading-none">×</button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="text-xs text-slate-400 block mb-1.5">任务标题 *</label>
+        <input type="text" id="task-title" placeholder="输入任务名称"
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">分类</label>
+          <select id="task-category"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+            <option value="work">工作</option>
+            <option value="study">学习</option>
+            <option value="personal">个人</option>
+            <option value="other">其他</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">优先级</label>
+          <select id="task-priority"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+            <option value="high">🔴 高</option>
+            <option value="medium" selected>🟡 中</option>
+            <option value="low">🟢 低</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 block mb-1.5">截止日期</label>
+        <input type="date" id="task-duedate"
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div class="flex gap-3 pt-1">
+        <button onclick="hideModal('task-modal')"
+          class="flex-1 border border-gray-200 text-slate-500 py-2.5 rounded-xl text-sm hover:bg-gray-50">取消</button>
+        <button onclick="addTask()"
+          class="flex-1 bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-600">添加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Learning Modal -->
+<div id="learning-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-bold text-lg">添加学习项目</h3>
+      <button onclick="hideModal('learning-modal')" class="text-slate-300 hover:text-slate-500 text-2xl leading-none">×</button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="text-xs text-slate-400 block mb-1.5">项目名称 *</label>
+        <input type="text" id="learning-title" placeholder="例：JavaScript 高级编程"
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">类型</label>
+          <select id="learning-type"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+            <option value="course">🎓 课程</option>
+            <option value="book">📖 书籍</option>
+            <option value="skill">⚡ 技能</option>
+            <option value="other">📌 其他</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">总单元数 *</label>
+          <input type="number" id="learning-total" min="1" placeholder="例：100"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 block mb-1.5">单元名称（章节 / 页 / 小时…）</label>
+        <input type="text" id="learning-unit" placeholder="章节"
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 block mb-1.5">备注（选填）</label>
+        <input type="text" id="learning-notes" placeholder="例：每天学 2 章"
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div class="flex gap-3 pt-1">
+        <button onclick="hideModal('learning-modal')"
+          class="flex-1 border border-gray-200 text-slate-500 py-2.5 rounded-xl text-sm hover:bg-gray-50">取消</button>
+        <button onclick="addLearningItem()"
+          class="flex-1 bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-600">添加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Habit Modal -->
+<div id="habit-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-bold text-lg">添加习惯</h3>
+      <button onclick="hideModal('habit-modal')" class="text-slate-300 hover:text-slate-500 text-2xl leading-none">×</button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="text-xs text-slate-400 block mb-1.5">习惯名称 *</label>
+        <input type="text" id="habit-name" placeholder="例：每日运动 30 分钟"
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 block mb-2">颜色标签</label>
+        <div class="flex gap-2.5" id="color-picker">
+          <div class="color-opt w-7 h-7 rounded-full bg-indigo-400 cursor-pointer ring-2 ring-offset-2 ring-indigo-400" data-color="indigo" onclick="selectHabitColor(this)"></div>
+          <div class="color-opt w-7 h-7 rounded-full bg-emerald-400 cursor-pointer" data-color="emerald" onclick="selectHabitColor(this)"></div>
+          <div class="color-opt w-7 h-7 rounded-full bg-amber-400 cursor-pointer" data-color="amber" onclick="selectHabitColor(this)"></div>
+          <div class="color-opt w-7 h-7 rounded-full bg-rose-400 cursor-pointer" data-color="rose" onclick="selectHabitColor(this)"></div>
+          <div class="color-opt w-7 h-7 rounded-full bg-sky-400 cursor-pointer" data-color="sky" onclick="selectHabitColor(this)"></div>
+          <div class="color-opt w-7 h-7 rounded-full bg-purple-400 cursor-pointer" data-color="purple" onclick="selectHabitColor(this)"></div>
+        </div>
+      </div>
+      <div class="flex gap-3 pt-1">
+        <button onclick="hideModal('habit-modal')"
+          class="flex-1 border border-gray-200 text-slate-500 py-2.5 rounded-xl text-sm hover:bg-gray-50">取消</button>
+        <button onclick="addHabit()"
+          class="flex-1 bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-600">添加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Progress Modal -->
+<div id="progress-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-bold text-lg" id="progress-modal-title">更新进度</h3>
+      <button onclick="hideModal('progress-modal')" class="text-slate-300 hover:text-slate-500 text-2xl leading-none">×</button>
+    </div>
+    <input type="hidden" id="progress-item-id">
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">已完成单元</label>
+          <input type="number" id="progress-done" min="0"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1.5">总单元数</label>
+          <input type="number" id="progress-total" min="1"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        </div>
+      </div>
+      <div class="flex gap-3 pt-1">
+        <button onclick="hideModal('progress-modal')"
+          class="flex-1 border border-gray-200 text-slate-500 py-2.5 rounded-xl text-sm hover:bg-gray-50">取消</button>
+        <button onclick="saveProgress()"
+          class="flex-1 bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-600">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== STATE =====================
+const STORAGE_KEY = 'schedule_v1';
+let state = { dailyLogs: {}, tasks: [], learningItems: [], habits: [], habitRecords: {} };
+let currentPage = 'today';
+let currentTaskFilter = 'all';
+let selectedHabitColor = 'indigo';
+
+// ===================== STORAGE =====================
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function load() {
+  try { const d = localStorage.getItem(STORAGE_KEY); if (d) state = JSON.parse(d); } catch(e) {}
+}
+
+// ===================== UTILS =====================
+function getToday() { return new Date().toISOString().split('T')[0]; }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function formatDateFull() {
+  const d = new Date();
+  const days = ['日','一','二','三','四','五','六'];
+  return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日  星期${days[d.getDay()]}`;
+}
+
+function formatDate(s) {
+  if (!s) return '';
+  const d = new Date(s + 'T00:00:00');
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+function isCreatedToday(isoStr) {
+  return isoStr && isoStr.startsWith(getToday());
+}
+
+// ===================== NAVIGATION =====================
+function showPage(page) {
+  currentPage = page;
+  document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.remove('bg-slate-700', 'text-white');
+    el.classList.add('text-slate-400');
+  });
+  document.getElementById('page-' + page).classList.remove('hidden');
+  const nav = document.getElementById('nav-' + page);
+  nav.classList.add('bg-slate-700', 'text-white');
+  nav.classList.remove('text-slate-400');
+  renderPage(page);
+}
+
+function renderPage(p) {
+  if (p === 'today')    renderToday();
+  if (p === 'tasks')    renderTasks();
+  if (p === 'learning') renderLearning();
+  if (p === 'habits')   renderHabits();
+}
+
+// ===================== MODAL =====================
+function showModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function hideModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+document.querySelectorAll('.modal-overlay').forEach(el =>
+  el.addEventListener('click', e => { if (e.target === el) hideModal(el.id); })
+);
+
+// ===================== DAILY LOG =====================
+function saveDailyLog() {
+  const today = getToday();
+  state.dailyLogs[today] = {
+    wakeTime:     document.getElementById('wake-time').value,
+    sleepTime:    document.getElementById('sleep-time').value,
+    focusMinutes: parseInt(document.getElementById('focus-time').value) || 0,
+  };
+  save();
+  updateStats();
+}
+
+function loadDailyLog() {
+  const log = state.dailyLogs[getToday()] || {};
+  document.getElementById('wake-time').value  = log.wakeTime || '';
+  document.getElementById('sleep-time').value = log.sleepTime || '';
+  document.getElementById('focus-time').value = log.focusMinutes || '';
+}
+
+function updateStats() {
+  const today = getToday();
+  const log = state.dailyLogs[today] || {};
+  const todayTasks = state.tasks.filter(t => t.dueDate === today || (!t.dueDate && isCreatedToday(t.createdAt)));
+  const doneTasks  = todayTasks.filter(t => t.done);
+  const records    = state.habitRecords[today] || [];
+  document.getElementById('stat-tasks').textContent  = `${doneTasks.length}/${todayTasks.length}`;
+  document.getElementById('stat-habits').textContent = `${records.length}/${state.habits.length}`;
+  document.getElementById('stat-focus').textContent  = log.focusMinutes || 0;
+}
+
+// ===================== TODAY PAGE =====================
+function renderToday() {
+  document.getElementById('today-date-display').textContent = formatDateFull();
+  loadDailyLog();
+  updateStats();
+
+  const today = getToday();
+  const todayTasks = state.tasks.filter(t => t.dueDate === today || (!t.dueDate && isCreatedToday(t.createdAt)));
+  const tl = document.getElementById('today-tasks-list');
+  tl.innerHTML = todayTasks.length === 0
+    ? '<p class="text-slate-300 text-sm text-center py-6">暂无今日任务</p>'
+    : todayTasks.map(t => `
+        <div class="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+          <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}')"
+            class="w-4 h-4 accent-indigo-500 flex-shrink-0 cursor-pointer">
+          <span class="text-sm flex-1 ${t.done ? 'line-through text-slate-300' : 'text-slate-700'} truncate">${t.title}</span>
+          ${priorityDot(t.priority)}
+        </div>`).join('');
+
+  const records = state.habitRecords[today] || [];
+  const hl = document.getElementById('today-habits-list');
+  hl.innerHTML = state.habits.length === 0
+    ? '<p class="text-slate-300 text-sm text-center py-6">还没有习惯，去添加吧</p>'
+    : state.habits.map(h => {
+        const done = records.includes(h.id);
+        return `
+          <div class="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+            <div class="w-2.5 h-2.5 rounded-full bg-${h.color}-400 flex-shrink-0"></div>
+            <span class="text-sm flex-1 ${done ? 'line-through text-slate-300' : 'text-slate-700'}">${h.name}</span>
+            <button onclick="toggleHabit('${h.id}')"
+              class="${done ? `bg-${h.color}-500 text-white` : 'bg-gray-100 text-slate-500'} text-xs px-3 py-1 rounded-full transition-colors hover:opacity-80 cursor-pointer">
+              ${done ? '✓ 已完成' : '打卡'}
+            </button>
+          </div>`;
+      }).join('');
+}
+
+// ===================== TASKS =====================
+const CAT_LABEL = { work:'工作', study:'学习', personal:'个人', other:'其他' };
+const CAT_COLOR  = { work:'blue', study:'violet', personal:'emerald', other:'slate' };
+const PRI_LABEL  = { high:'高', medium:'中', low:'低' };
+const PRI_COLOR  = { high:'rose', medium:'amber', low:'slate' };
+
+function priorityDot(p) {
+  const c = PRI_COLOR[p] || 'slate';
+  return `<span class="w-2 h-2 rounded-full bg-${c}-400 flex-shrink-0 inline-block"></span>`;
+}
+
+function addTask() {
+  const title = document.getElementById('task-title').value.trim();
+  if (!title) { alert('请输入任务标题'); return; }
+  state.tasks.unshift({
+    id: uid(), title,
+    category: document.getElementById('task-category').value,
+    priority:  document.getElementById('task-priority').value,
+    dueDate:   document.getElementById('task-duedate').value,
+    done: false, createdAt: new Date().toISOString(),
+  });
+  save();
+  hideModal('task-modal');
+  document.getElementById('task-title').value  = '';
+  document.getElementById('task-duedate').value = '';
+  renderPage(currentPage);
+}
+
+function toggleTask(id) {
+  const t = state.tasks.find(t => t.id === id);
+  if (t) { t.done = !t.done; save(); }
+  renderPage(currentPage);
+}
+
+function deleteTask(id) {
+  if (!confirm('删除这条任务？')) return;
+  state.tasks = state.tasks.filter(t => t.id !== id);
+  save(); renderTasks();
+  if (currentPage === 'today') renderToday();
+}
+
+function setTaskFilter(f) {
+  currentTaskFilter = f;
+  document.querySelectorAll('.task-filter').forEach(el => {
+    el.classList.remove('bg-indigo-500','text-white');
+    el.classList.add('bg-white','text-slate-500','border','border-gray-200');
+  });
+  const btn = document.getElementById('filter-' + f);
+  btn.classList.add('bg-indigo-500','text-white');
+  btn.classList.remove('bg-white','text-slate-500','border','border-gray-200');
+  renderTasks();
+}
+
+function filteredTasks() {
+  const today = getToday();
+  if (currentTaskFilter === 'today')   return state.tasks.filter(t => t.dueDate === today || (!t.dueDate && isCreatedToday(t.createdAt)));
+  if (currentTaskFilter === 'pending') return state.tasks.filter(t => !t.done);
+  if (currentTaskFilter === 'done')    return state.tasks.filter(t => t.done);
+  return state.tasks;
+}
+
+function renderTasks() {
+  const tasks = filteredTasks();
+  const list  = document.getElementById('tasks-list');
+  if (tasks.length === 0) {
+    list.innerHTML = '<div class="text-center py-16 text-slate-300"><div class="text-5xl mb-3">📋</div><p class="text-sm">暂无任务</p></div>';
+    return;
+  }
+  list.innerHTML = tasks.map(t => `
+    <div class="bg-white rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md transition-shadow">
+      <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}')"
+        class="w-4 h-4 accent-indigo-500 flex-shrink-0 cursor-pointer">
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium ${t.done ? 'line-through text-slate-300' : 'text-slate-700'} truncate">${t.title}</p>
+        <div class="flex items-center gap-2 mt-1 flex-wrap">
+          <span class="text-xs px-2 py-0.5 rounded-full bg-${CAT_COLOR[t.category]||'slate'}-100 text-${CAT_COLOR[t.category]||'slate'}-600">
+            ${CAT_LABEL[t.category]||''}
+          </span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-${PRI_COLOR[t.priority]||'slate'}-100 text-${PRI_COLOR[t.priority]||'slate'}-600">
+            ${PRI_LABEL[t.priority]||''} 优先
+          </span>
+          ${t.dueDate ? `<span class="text-xs text-slate-400">${formatDate(t.dueDate)} 截止</span>` : ''}
+        </div>
+      </div>
+      <button onclick="deleteTask('${t.id}')" class="text-slate-200 hover:text-rose-400 transition-colors text-xl leading-none flex-shrink-0">×</button>
+    </div>`).join('');
+}
+
+// ===================== LEARNING =====================
+const TYPE_ICON  = { course:'🎓', book:'📖', skill:'⚡', other:'📌' };
+const TYPE_LABEL = { course:'课程', book:'书籍', skill:'技能', other:'其他' };
+const TYPE_COLOR = { course:'indigo', book:'amber', skill:'emerald', other:'slate' };
+
+function addLearningItem() {
+  const title = document.getElementById('learning-title').value.trim();
+  const total = parseInt(document.getElementById('learning-total').value);
+  if (!title) { alert('请输入项目名称'); return; }
+  if (!total || total < 1) { alert('请输入有效的总单元数'); return; }
+  state.learningItems.push({
+    id: uid(), title,
+    type:       document.getElementById('learning-type').value,
+    totalUnits: total,
+    doneUnits:  0,
+    unit:       document.getElementById('learning-unit').value.trim() || '单元',
+    notes:      document.getElementById('learning-notes').value.trim(),
+    createdAt:  new Date().toISOString(),
+  });
+  save();
+  hideModal('learning-modal');
+  ['learning-title','learning-total','learning-unit','learning-notes'].forEach(id => document.getElementById(id).value = '');
+  renderLearning();
+}
+
+function openProgressModal(id) {
+  const item = state.learningItems.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('progress-modal-title').textContent = `更新进度 · ${item.title}`;
+  document.getElementById('progress-item-id').value  = id;
+  document.getElementById('progress-done').value     = item.doneUnits;
+  document.getElementById('progress-total').value    = item.totalUnits;
+  showModal('progress-modal');
+}
+
+function saveProgress() {
+  const id   = document.getElementById('progress-item-id').value;
+  const item = state.learningItems.find(i => i.id === id);
+  if (!item) return;
+  const done  = parseInt(document.getElementById('progress-done').value)  || 0;
+  const total = parseInt(document.getElementById('progress-total').value) || 1;
+  item.doneUnits  = Math.min(done, total);
+  item.totalUnits = total;
+  save(); hideModal('progress-modal'); renderLearning();
+}
+
+function deleteLearningItem(id) {
+  if (!confirm('删除这个学习项目？')) return;
+  state.learningItems = state.learningItems.filter(i => i.id !== id);
+  save(); renderLearning();
+}
+
+function renderLearning() {
+  const list = document.getElementById('learning-list');
+  if (state.learningItems.length === 0) {
+    list.innerHTML = '<div class="col-span-2 text-center py-16 text-slate-300"><div class="text-5xl mb-3">📚</div><p class="text-sm">暂无学习项目，点击右上角添加</p></div>';
+    return;
+  }
+  list.innerHTML = state.learningItems.map(item => {
+    const pct   = item.totalUnits > 0 ? Math.round(item.doneUnits / item.totalUnits * 100) : 0;
+    const color = TYPE_COLOR[item.type] || 'slate';
+    const completed = pct >= 100;
+    return `
+      <div class="bg-white rounded-2xl p-5 shadow-sm border ${completed ? 'border-emerald-200' : 'border-gray-100'} hover:shadow-md transition-shadow">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">${TYPE_ICON[item.type]||'📌'}</span>
+            <div>
+              <h4 class="font-semibold text-slate-800 text-sm leading-snug">${item.title}</h4>
+              <span class="text-xs text-${color}-500">${TYPE_LABEL[item.type]||''}</span>
+            </div>
+          </div>
+          <button onclick="deleteLearningItem('${item.id}')" class="text-slate-200 hover:text-rose-400 transition-colors text-xl leading-none">×</button>
+        </div>
+
+        ${item.notes ? `<p class="text-xs text-slate-400 mb-3 truncate">${item.notes}</p>` : ''}
+
+        <div class="mb-3">
+          <div class="flex justify-between text-xs mb-1.5">
+            <span class="text-slate-400">${item.doneUnits} / ${item.totalUnits} ${item.unit}</span>
+            <span class="font-semibold text-${color}-500">${pct}%${completed ? ' 🎉' : ''}</span>
+          </div>
+          <div class="w-full bg-gray-100 rounded-full h-2">
+            <div class="bg-${color}-400 h-2 rounded-full progress-bar" style="width:${pct}%"></div>
+          </div>
+        </div>
+
+        <button onclick="openProgressModal('${item.id}')"
+          class="w-full text-center text-xs text-${color}-500 border border-${color}-200 rounded-xl py-1.5 hover:bg-${color}-50 transition-colors">
+          更新进度
+        </button>
+      </div>`;
+  }).join('');
+}
+
+// ===================== HABITS =====================
+function selectHabitColor(el) {
+  document.querySelectorAll('.color-opt').forEach(c => {
+    c.classList.remove('ring-2','ring-offset-2',`ring-${c.dataset.color}-400`);
+  });
+  el.classList.add('ring-2','ring-offset-2',`ring-${el.dataset.color}-400`);
+  selectedHabitColor = el.dataset.color;
+}
+
+function addHabit() {
+  const name = document.getElementById('habit-name').value.trim();
+  if (!name) { alert('请输入习惯名称'); return; }
+  state.habits.push({ id: uid(), name, color: selectedHabitColor, createdAt: new Date().toISOString() });
+  save(); hideModal('habit-modal');
+  document.getElementById('habit-name').value = '';
+  renderPage(currentPage);
+}
+
+function toggleHabit(id) {
+  const today = getToday();
+  if (!state.habitRecords[today]) state.habitRecords[today] = [];
+  const recs = state.habitRecords[today];
+  const idx  = recs.indexOf(id);
+  if (idx >= 0) recs.splice(idx, 1); else recs.push(id);
+  save(); renderPage(currentPage);
+}
+
+function deleteHabit(id) {
+  if (!confirm('删除这个习惯？')) return;
+  state.habits = state.habits.filter(h => h.id !== id);
+  save(); renderPage(currentPage);
+}
+
+function getStreak(id) {
+  let streak = 0;
+  const d = new Date();
+  while (true) {
+    const s = d.toISOString().split('T')[0];
+    if ((state.habitRecords[s] || []).includes(id)) { streak++; d.setDate(d.getDate()-1); }
+    else break;
+  }
+  return streak;
+}
+
+function renderHabitGrid(id, color) {
+  const cells = [];
+  for (let i = 27; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const s    = d.toISOString().split('T')[0];
+    const done = (state.habitRecords[s] || []).includes(id);
+    const isT  = s === getToday();
+    cells.push(`<div title="${s}" class="w-5 h-5 rounded-sm ${done ? `bg-${color}-400` : 'bg-gray-100'} ${isT ? 'ring-1 ring-offset-1 ring-gray-300' : ''}"></div>`);
+  }
+  return `<div class="flex flex-wrap gap-1 mt-3">${cells.join('')}</div><p class="text-xs text-slate-300 mt-1.5">最近 28 天</p>`;
+}
+
+function renderHabits() {
+  const today   = getToday();
+  const records = state.habitRecords[today] || [];
+  const list    = document.getElementById('habits-list');
+
+  if (state.habits.length === 0) {
+    list.innerHTML = '<div class="text-center py-16 text-slate-300"><div class="text-5xl mb-3">🔥</div><p class="text-sm">暂无习惯，点击右上角添加</p></div>';
+    return;
+  }
+
+  list.innerHTML = state.habits.map(h => {
+    const done   = records.includes(h.id);
+    const streak = getStreak(h.id);
+    return `
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-4 h-4 rounded-full bg-${h.color}-400"></div>
+            <div>
+              <h4 class="font-semibold text-slate-800">${h.name}</h4>
+              <p class="text-xs text-slate-400 mt-0.5">🔥 连续 <span class="font-bold text-slate-600">${streak}</span> 天</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="toggleHabit('${h.id}')"
+              class="${done ? `bg-${h.color}-500 text-white` : 'bg-gray-100 text-slate-500'} px-4 py-1.5 rounded-full text-sm font-medium transition-colors hover:opacity-80 cursor-pointer">
+              ${done ? '✓ 已完成' : '今日打卡'}
+            </button>
+            <button onclick="deleteHabit('${h.id}')" class="text-slate-200 hover:text-rose-400 transition-colors text-xl leading-none">×</button>
+          </div>
+        </div>
+        ${renderHabitGrid(h.id, h.color)}
+      </div>`;
+  }).join('');
+}
+
+// ===================== INIT =====================
+load();
+document.getElementById('sidebar-date').textContent = formatDateFull();
+showPage('today');
+</script>
+</body>
+</html>
